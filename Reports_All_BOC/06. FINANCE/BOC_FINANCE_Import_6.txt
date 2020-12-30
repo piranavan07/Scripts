@@ -34,7 +34,7 @@
    BEV.FINISHED   AS TRANSACTION_DATE,
    MAS.EXPIRY_DAT AS EXPIRY_DATE,
     CASE
-     WHEN BEV.CREATNMTHD = 'G'
+     WHEN BEV.CREATNMTHD = 'G'---------------------TODO
      THEN BEV.FINISHED
     END                                                       AS FCC_INPUT_DATE,
     MAS.CCY                                                   AS TRAN_CCY,
@@ -46,12 +46,8 @@
 	CAST( MULTIPLY_ALT((MAS.AMOUNT /POWER(10,C8PF.C8CED)),NVL(SPOT.SPOTRATE,1)) AS DECIMAL(20,0)) AS AMOUNT_IN_BASE_CURRENCY,
     CAST( MULTIPLY_ALT((MAS.AMT_O_S/POWER(10,C8PF.C8CED)),NVL(SPOT.SPOTRATE,1)) AS DECIMAL(20,0)) AS OS_AMT_IN_BASE,
 	
-	
-	
- --   CAST((MAS.AMOUNT /POWER(10,C8PF.C8CED)) * NVL(SPOT.SPOTRATE,1) AS DECIMAL(
- --   20,0)) AS AMOUNT_IN_BASE_CURRENCY,
- --   CAST((MAS.AMT_O_S/POWER(10,C8PF.C8CED))* NVL(SPOT.SPOTRATE,1) AS DECIMAL(20
- --   ,0))          AS OUTSTANDINGAMOUNT_IN_BASE,
+		
+			
   -- FIN.FXRATE    AS FX_RATE,
  --  EXT.FLORRATE  AS FLOOR_RATE,
  --   ' '           AS CROSS_RATE,
@@ -61,17 +57,17 @@
  
     ' '           AS TERM_OF_TRANSACTION,
 	
-	CASE PROD.SHORTN13
-      WHEN 'Revolve'
-      THEN 'YES'
-      ELSE 'NO'
-    END AS           Revolving------------------aadded
+--	CASE PROD.SHORTN13
+--      WHEN 'Revolve'
+--      THEN 'YES'
+--      ELSE 'NO'
+--    END AS           Revolving,---------------------TODO
 	
 	CASE PRD.SHORTN13
       WHEN 'Back/Back'
       THEN 'YES'
       ELSE 'NO'
-    END                                     AS BACK_TO_BACK 
+    END                                     AS BACK_TO_BACK ,
 
 	
    PRD.CODE79    AS PRODUCT_CODE,
@@ -87,7 +83,7 @@
       BEV.KEY97        = REL.EVENT_KEY
     AND REL.KEY97      = POS.KEY97
     AND POS.POSTED_AS IS NOT NULL
-    AND POS.ACC_TYPE  IN ('CA','SA','VOS','EEFC')----------------------------TODO
+    AND POS.ACC_TYPE  IN ('CA','SA','VOS','EEFC')---------------------TODO
       AND ROWNUM         = 1
    )                                             AS ACCOUNT_NUMBER,
     CAST( NVL(CHG.CHARGE_AMT,0) AS DECIMAL(20,0)) AS COMM_CHG,
@@ -123,7 +119,7 @@
             RLT.DESCR      AS DESCR,
             BAC.CHG_CCY    AS CHARGE_CCY,
             CASE
-              WHEN RLT.DESCR NOT LIKE '%Swift%'-------------------- Release Template Description /
+              WHEN RLT.DESCR NOT LIKE '%Swift%'-------------------- Release Template Description /---------------------TODO
               THEN SUM(BAC.CHG_DUE/
                 (
                   SELECT
@@ -149,11 +145,11 @@
           AND BAC.KEY97       = EVC.KEY97
           AND EVC.CHG_SCH     = CHG.KEY97
           AND CHG.CHG_TYPE    = RLT.KEY97
-          AND BEV.STATUS      = 'c'--(•i - In progress/•c - Completed/•a - Aborted)
+          AND BEV.STATUS      = 'c'--(•i - In progress/•c - Completed/•a - Aborted)---------------------TODO
           AND BAC.STATUS  IN ('O')--(X - In preparation	O - Outstanding	P - Paid	A - Superseded	W - Waived	C - Claimed	F - Periodic	B - Awaiting	R - Reimbursement	D - Billed	G - Periodic billed	E - Invoiced	H - Periodic invoiced	Z - Cancelled	U - Refunded	V - Refunded periodic	a - Superseded (rate)	S - Split	K - Waived and Cancelled)----------------------------TODO
   
-          AND BEV.ISPROVISEV  = 'N'
-          AND BAC.ACTION      = 'N'
+          AND BEV.ISPROVISEV  = 'N'---------------------TODO
+          AND BAC.ACTION      = 'N'---------------------TODO
           GROUP BY
             BEV.MASTER_KEY,
             RLT.DESCR,
@@ -164,6 +160,8 @@
         CHARGE_CCY
     )
     CHG ON MAS.KEY97  = CHG.MASTER_KEY------------------------------------Join/@@@@
-  WHERE SPOT.BRANCH    = 'BOCD' -- NEED TO CHANGE BOCC FOR INDIA
-  AND BEV.STATUS = 'c'--(•i - In progress/•c - Completed/•a - Aborted)
+  WHERE SPOT.BRANCH    = 'BOCD' -- NEED TO CHANGE BOCC FOR INDIA---------------------TODO
+  AND BEV.STATUS = 'c'--(•i - In progress/•c - Completed/•a - Aborted)---------------------TODO
  ;
+ 
+ --SELECT * FROM PRODTYPE;
