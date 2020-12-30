@@ -1,0 +1,169 @@
+--OutStanding
+--Import
+
+
+--CREATE OR REPLACE VIEW TIZONE1.BOC_FINANCE_Import_6
+--AS
+  SELECT
+   PROD.CODE      AS SUB_PRODUCT,
+   MAS.MASTER_REF AS MASTER_REF,
+   MAS.RELMSTRREF AS RELATED_MASTER_REFNO,
+   PAD.ADDRESS1   AS OUR_CUTOMER,
+   PAD.CUS_MNM    AS CIF,
+   PAD.CUS_SBB    AS CUST_SBB,
+    (
+      SELECT
+        GFCTP1
+      FROM
+        GFPF
+      WHERE
+        GFCUS1 = MAS.PRICUSTMNM
+    )              AS OWNERSHIP_CODE,
+   EXTC.EMPLYECD  AS RELATED_PARTY,
+   FIN.PURPOSECOD AS PURPOSE_CODE,
+    (
+      SELECT
+        FULLNAME
+      FROM
+        CAPF
+      WHERE
+        CABRNM = MAS.BHALF_BRN
+    )              AS ON_BEHALFOF_BRANCH,
+   MAS.CTRCT_DATE AS LOG_DATE,
+   BEV.START_DATE AS INPUT_DATE,
+   BEV.FINISHED   AS TRANSACTION_DATE,
+   MAS.EXPIRY_DAT AS EXPIRY_DATE,
+    CASE
+     WHEN BEV.CREATNMTHD = 'G'
+     THEN BEV.FINISHED
+    END                                                       AS FCC_INPUT_DATE,
+    MAS.CCY                                                   AS TRAN_CCY,
+    CAST((MAS.AMOUNT /POWER(10,C8PF.C8CED)) AS DECIMAL(20,0)) AS
+    AMOUNT_IN_TRANSACTION_CURRENCY,
+    CAST((MAS.AMT_O_S/POWER(10,C8PF.C8CED)) AS DECIMAL(20,0)) AS
+    OUTSTANDING_AMOUNT,
+	
+	CAST( MULTIPLY_ALT((MAS.AMOUNT /POWER(10,C8PF.C8CED)),NVL(SPOT.SPOTRATE,1)) AS DECIMAL(20,0)) AS AMOUNT_IN_BASE_CURRENCY,
+    CAST( MULTIPLY_ALT((MAS.AMT_O_S/POWER(10,C8PF.C8CED)),NVL(SPOT.SPOTRATE,1)) AS DECIMAL(20,0)) AS OS_AMT_IN_BASE,
+	
+	
+	
+ --   CAST((MAS.AMOUNT /POWER(10,C8PF.C8CED)) * NVL(SPOT.SPOTRATE,1) AS DECIMAL(
+ --   20,0)) AS AMOUNT_IN_BASE_CURRENCY,
+ --   CAST((MAS.AMT_O_S/POWER(10,C8PF.C8CED))* NVL(SPOT.SPOTRATE,1) AS DECIMAL(20
+ --   ,0))          AS OUTSTANDINGAMOUNT_IN_BASE,
+  -- FIN.FXRATE    AS FX_RATE,
+ --  EXT.FLORRATE  AS FLOOR_RATE,
+ --   ' '           AS CROSS_RATE,
+    PAD1.ADDRESS1 AS COUNTER_PARTY,
+    PAD1.COUNTRY  AS COUNTER_PARTY_CONTRY,
+ --  PAD1.SW_BANK  AS COUNTER_PARTY_BANK,
+ 
+    ' '           AS TERM_OF_TRANSACTION,
+	
+	CASE PROD.SHORTN13
+      WHEN 'Revolve'
+      THEN 'YES'
+      ELSE 'NO'
+    END AS           Revolving------------------aadded
+	
+	CASE PRD.SHORTN13
+      WHEN 'Back/Back'
+      THEN 'YES'
+      ELSE 'NO'
+    END                                     AS BACK_TO_BACK 
+
+	
+   PRD.CODE79    AS PRODUCT_CODE,
+   EXT.HSCODE    AS HS_CODE,
+ --   ' '           AS CBSL_GOODS_CODE,
+  (
+    SELECT
+      POS.BO_ACC_NO
+    FROM
+      RELITEM REL,
+      POSTING POS
+    WHERE
+      BEV.KEY97        = REL.EVENT_KEY
+    AND REL.KEY97      = POS.KEY97
+    AND POS.POSTED_AS IS NOT NULL
+    AND POS.ACC_TYPE  IN ('CA','SA','VOS','EEFC')----------------------------TODO
+      AND ROWNUM         = 1
+   )                                             AS ACCOUNT_NUMBER,
+    CAST( NVL(CHG.CHARGE_AMT,0) AS DECIMAL(20,0)) AS COMM_CHG,
+  --   ' '                                           AS BEN_SHA_OUR,
+  ETT_FIN_NEW_INTEREST_RATE(MAS.KEY97)          AS INTEREST_RATE,
+  FIN.PAST_DUE                                  AS INTEREST_OUTSTANDING,
+  FIN.RCVINT_AMT                                AS INTEREST_RECOVERED,
+  EXTC.NPACATGR                                 AS CATAGORY,
+  EXTC.NPAFLAG                                  AS NPA--,
+ --   ' '                                           AS UNRECOVERED_INTEREST,
+ --   ' '                                           AS UBO_RATE
+ FROM
+    MASTER MAS INNER JOIN BASEEVENT BEV ON MAS.KEY97        = BEV.MASTER_KEY
+	INNER JOIN FNCEMASTER FIN ON MAS.KEY97      = FIN.KEY97
+    INNER JOIN PRODTYPE PROD ON MAS.PRODTYPE   = PROD.KEY97
+    LEFT OUTER JOIN EXTEVENT EXT ON BEV.KEY97      = EXT.EVENT 
+    LEFT OUTER JOIN PARTYDTLS PAD ON FIN.FINCEPARTY = PAD.KEY97
+    LEFT OUTER JOIN PARTYDTLS PAD1 ON FIN.DEBITPARTY = PAD1.KEY97
+	LEFT OUTER JOIN EXTCUST EXTC ON PAD.CUS_MNM    = EXTC.CUST
+    INNER JOIN EXEMPL30 PRD ON MAS.EXEMPLAR   = PRD.KEY97
+    INNER JOIN EXEMPL30 EVE ON BEV.EXEMPLAR   = EVE.KEY97
+    INNER JOIN C8PF C8PF ON MAS.CCY        = C8PF.C8CCY
+    LEFT OUTER JOIN SPOTRATE SPOT ON MAS.CCY        = SPOT.CURRENCY
+    LEFT OUTER JOIN (-----------------------------------------Join/@@@@
+      SELECT
+        MASTER_KEY,
+        SUM(CHARGE_AMT) AS CHARGE_AMT,
+        CHARGE_CCY
+      FROM
+        (
+          SELECT
+            BEV.MASTER_KEY AS MASTER_KEY,
+            RLT.DESCR      AS DESCR,
+            BAC.CHG_CCY    AS CHARGE_CCY,
+            CASE
+              WHEN RLT.DESCR NOT LIKE '%Swift%'-------------------- Release Template Description /
+              THEN SUM(BAC.CHG_DUE/
+                (
+                  SELECT
+                    POWER(10,C8CED)
+                  FROM
+                    C8PF
+                  WHERE
+                    C8CCY = BAC.CHG_CCY
+                )
+                )
+              ELSE 0
+            END AS CHARGE_AMT
+          FROM
+            BASEEVENT BEV,
+            RELITEM REL,
+            BASECHARGE BAC,
+            EVENTCHG EVC,
+            CHGSCHED CHG,
+            RELTEMPLTE RLT
+          WHERE
+            BEV.KEY97         = REL.EVENT_KEY
+          AND REL.KEY97       = BAC.KEY97
+          AND BAC.KEY97       = EVC.KEY97
+          AND EVC.CHG_SCH     = CHG.KEY97
+          AND CHG.CHG_TYPE    = RLT.KEY97
+          AND BEV.STATUS      = 'c'--(•i - In progress/•c - Completed/•a - Aborted)
+          AND BAC.STATUS  IN ('O')--(X - In preparation	O - Outstanding	P - Paid	A - Superseded	W - Waived	C - Claimed	F - Periodic	B - Awaiting	R - Reimbursement	D - Billed	G - Periodic billed	E - Invoiced	H - Periodic invoiced	Z - Cancelled	U - Refunded	V - Refunded periodic	a - Superseded (rate)	S - Split	K - Waived and Cancelled)----------------------------TODO
+  
+          AND BEV.ISPROVISEV  = 'N'
+          AND BAC.ACTION      = 'N'
+          GROUP BY
+            BEV.MASTER_KEY,
+            RLT.DESCR,
+            BAC.CHG_CCY
+        )
+      GROUP BY
+        MASTER_KEY,
+        CHARGE_CCY
+    )
+    CHG ON MAS.KEY97  = CHG.MASTER_KEY------------------------------------Join/@@@@
+  WHERE SPOT.BRANCH    = 'BOCD' -- NEED TO CHANGE BOCC FOR INDIA
+  AND BEV.STATUS = 'c'--(•i - In progress/•c - Completed/•a - Aborted)
+ ;
